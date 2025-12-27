@@ -1,0 +1,288 @@
+"use client";
+
+import { useEffect, useRef, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { VideoUploader } from "@/components/VideoUploader";
+import { PoseVisualizer } from "@/components/PoseVisualizer";
+import { RiskTimeline } from "@/components/RiskTimeline";
+import { PostureEngine } from "@/lib/analysis/engine";
+import { PoseLandmarks, AssessmentIssue } from "@/lib/analysis/types";
+import { analyzeNaturalStanding } from "@/lib/analysis/modules/standing";
+import { analyzeSingleLegStance } from "@/lib/analysis/modules/single_leg";
+import { analyzeWalking } from "@/lib/analysis/modules/walking";
+import { analyzeSquat } from "@/lib/analysis/modules/squat";
+import { analyzeOverhead } from "@/lib/analysis/modules/overhead";
+import { analyzeClimbing } from "@/lib/analysis/modules/climbing";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Play, Pause, RotateCcw, ArrowLeft, AlertTriangle, CheckCircle, Activity } from "lucide-react";
+import Link from "next/link";
+
+type AnalysisMode = 'standing' | 'single_leg' | 'walking' | 'squat' | 'overhead' | 'climbing';
+
+function AnalysisContent() {
+    const searchParams = useSearchParams();
+    const initialMode = (searchParams.get('mode') as AnalysisMode) || 'standing';
+
+    const [videoFile, setVideoFile] = useState<File | null>(null);
+    const [videoUrl, setVideoUrl] = useState<string | null>(null);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [landmarks, setLandmarks] = useState<PoseLandmarks | null>(null);
+    const [engine, setEngine] = useState<PostureEngine | null>(null);
+    const [videoDimensions, setVideoDimensions] = useState({ width: 0, height: 0 });
+    const [mode, setMode] = useState<AnalysisMode>(initialMode);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(0);
+
+    // Real-time issues state
+    const [currentIssues, setCurrentIssues] = useState<AssessmentIssue[]>([]);
+
+    // History for timeline
+    const [issueHistory, setIssueHistory] = useState<{ time: number; issues: AssessmentIssue[] }[]>([]);
+
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const requestRef = useRef<number | null>(null);
+
+    // Use a ref to hold the current mode
+    const modeRef = useRef(mode);
+    useEffect(() => {
+        modeRef.current = mode;
+        // Reset history when mode changes
+        setIssueHistory([]);
+        setCurrentIssues([]);
+    }, [mode]);
+
+    // 1. Initialize Engine
+    useEffect(() => {
+        const newEngine = new PostureEngine();
+        newEngine.setOnResults((results) => {
+            setLandmarks(results);
+
+            let issues: AssessmentIssue[] = [];
+            const currentMode = modeRef.current;
+
+            switch (currentMode) {
+                case 'standing': issues = analyzeNaturalStanding(results); break;
+                case 'single_leg': issues = analyzeSingleLegStance(results); break;
+                case 'walking': issues = analyzeWalking(results); break;
+                case 'squat': issues = analyzeSquat(results); break;
+                case 'overhead': issues = analyzeOverhead(results); break;
+                case 'climbing': issues = analyzeClimbing(results); break;
+                default: issues = [];
+            }
+
+            // Accumulate issues: Only add if not already present
+            if (issues.length > 0) {
+                setCurrentIssues(prev => {
+                    const newIssues = [...prev];
+                    issues.forEach(newIssue => {
+                        const exists = prev.some(existing => existing.id === newIssue.id);
+                        if (!exists) {
+                            newIssues.push(newIssue);
+                        }
+                    });
+                    return newIssues;
+                });
+
+                // Record history if video is playing
+                if (videoRef.current && !videoRef.current.paused) {
+                    const t = videoRef.current.currentTime;
+                    setIssueHistory(prev => [...prev, { time: t, issues }]);
+                }
+            }
+        });
+        setEngine(newEngine);
+
+        return () => {
+            newEngine.close();
+        };
+    }, []);
+
+    // 2. Handle Video File Selection
+    useEffect(() => {
+        if (videoFile) {
+            const url = URL.createObjectURL(videoFile);
+            setVideoUrl(url);
+            setIssueHistory([]); // Reset history
+            setCurrentIssues([]); // Reset current issues
+            return () => URL.revokeObjectURL(url);
+        }
+    }, [videoFile]);
+
+    // 3. Frame Processing Loop
+    const processFrame = async () => {
+        if (videoRef.current && !videoRef.current.paused && !videoRef.current.ended && engine) {
+            await engine.processFrame(videoRef.current);
+            setCurrentTime(videoRef.current.currentTime);
+            requestRef.current = requestAnimationFrame(processFrame);
+        }
+    };
+
+    // 4. Handle Playback
+    useEffect(() => {
+        if (isPlaying) {
+            videoRef.current?.play();
+            requestRef.current = requestAnimationFrame(processFrame);
+        } else {
+            videoRef.current?.pause();
+            if (requestRef.current) {
+                cancelAnimationFrame(requestRef.current);
+            }
+        }
+    }, [isPlaying, engine]);
+
+    const togglePlay = () => setIsPlaying(!isPlaying);
+
+    const handleVideoLoaded = () => {
+        if (videoRef.current) {
+            setVideoDimensions({
+                width: videoRef.current.videoWidth,
+                height: videoRef.current.videoHeight
+            });
+            setDuration(videoRef.current.duration);
+        }
+    }
+
+    const handleSeek = (time: number) => {
+        if (videoRef.current) {
+            videoRef.current.currentTime = time;
+            setCurrentTime(time);
+        }
+    }
+
+    return (
+        <div className="min-h-screen bg-black text-white flex flex-col">
+            {/* Sticky Mobile Header */}
+            <div className="sticky top-0 z-50 bg-black/80 backdrop-blur-md border-b border-white/10 px-4 py-3 flex items-center justify-between">
+                <Link href="/" className="inline-flex items-center text-white/70 hover:text-white transition-colors">
+                    <ArrowLeft className="w-5 h-5" />
+                </Link>
+
+                <Select value={mode} onValueChange={(v: AnalysisMode) => setMode(v)}>
+                    <SelectTrigger className="w-[160px] h-9 bg-white/5 border-white/10 text-white text-xs">
+                        <SelectValue placeholder="分析模式" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-neutral-900 border-white/10 text-white">
+                        <SelectItem value="standing">自然站立</SelectItem>
+                        <SelectItem value="single_leg">单腿站立</SelectItem>
+                        <SelectItem value="walking">自然步行</SelectItem>
+                        <SelectItem value="squat">双脚深蹲</SelectItem>
+                        <SelectItem value="overhead">手臂上举</SelectItem>
+                        <SelectItem value="climbing">攀岩模式 (Beta)</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+
+            <main className="flex-1 flex flex-col p-4 gap-6 max-w-md mx-auto w-full">
+
+                {/* 1. Video Area */}
+                {!videoUrl ? (
+                    <div className="mt-8">
+                        <VideoUploader onVideoSelect={setVideoFile} />
+                    </div>
+                ) : (
+                    <div className="flex flex-col gap-4">
+                        {/* Player */}
+                        <div className="relative aspect-[3/4] w-full bg-neutral-900 rounded-xl overflow-hidden shadow-2xl shadow-purple-900/10 border border-white/10">
+                            <video
+                                ref={videoRef}
+                                src={videoUrl}
+                                className="w-full h-full object-contain"
+                                onLoadedMetadata={handleVideoLoaded}
+                                onEnded={() => setIsPlaying(false)}
+                                onTimeUpdate={() => {
+                                    if (videoRef.current) setCurrentTime(videoRef.current.currentTime);
+                                }}
+                                playsInline
+                                muted
+                            />
+
+                            {/* Overlay */}
+                            {videoDimensions.width > 0 && (
+                                <div className="absolute inset-0 w-full h-full pointer-events-none">
+                                    <PoseVisualizer
+                                        landmarks={landmarks}
+                                        width={videoDimensions.width}
+                                        height={videoDimensions.height}
+                                    />
+                                </div>
+                            )}
+
+
+                            {/* Play Controls Overlay */}
+                            <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-6 pointer-events-auto">
+                                <Button onClick={() => {
+                                    if (videoRef.current) {
+                                        videoRef.current.currentTime = 0;
+                                        setIsPlaying(true);
+                                        setCurrentIssues([]);
+                                        setIssueHistory([]);
+                                    }
+                                }} variant="ghost" size="icon" className="text-white/80 hover:text-white hover:bg-black/40 rounded-full">
+                                    <RotateCcw className="w-6 h-6" />
+                                </Button>
+
+                                <Button onClick={togglePlay} variant="secondary" size="icon" className="rounded-full w-14 h-14 bg-white text-black hover:bg-white/90 shadow-lg">
+                                    {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-1" />}
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Climbing Timeline */}
+                        {mode === 'climbing' && (
+                            <RiskTimeline
+                                issues={issueHistory}
+                                duration={duration}
+                                currentTime={currentTime}
+                                onSeek={handleSeek}
+                            />
+                        )}
+
+                        {/* 2. Analysis Report - Bottom Sheet Style */}
+                        <Card className="bg-neutral-900/50 border-white/10 text-white backdrop-blur-md">
+                            <CardHeader className="pb-3 border-b border-white/5">
+                                <CardTitle className="flex items-center space-x-2 text-base">
+                                    {mode === 'climbing' ? <Activity className="w-4 h-4 text-red-500" /> : <AlertTriangle className="w-4 h-4 text-yellow-500" />}
+                                    <span>{mode === 'climbing' ? '风险记录' : '体态报告'}</span>
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-4 max-h-[300px] overflow-y-auto space-y-3">
+                                {currentIssues.length === 0 ? (
+                                    <div className="text-center text-white/30 py-4 text-sm">
+                                        {isPlaying ? "正在分析中..." : "等待播放..."}
+                                    </div>
+                                ) : (
+                                    currentIssues.map((issue, idx) => (
+                                        <div key={`${issue.id}-${idx}`} className="p-3 rounded-lg bg-white/5 border border-white/10 space-y-1.5 animate-in fade-in slide-in-from-bottom-2">
+                                            <div className="flex items-center justify-between">
+                                                <h3 className="font-medium text-purple-300 text-sm">{issue.name}</h3>
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${issue.riskLevel === 'high' ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'
+                                                    }`}>
+                                                    {issue.riskLevel === 'high' ? '高风险' : '中风险'}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-white/60">{issue.description}</p>
+                                            <div className="flex items-start space-x-1.5 pt-1">
+                                                <CheckCircle className="w-3 h-3 text-green-400 mt-0.5" />
+                                                <p className="text-[10px] text-white/40">{issue.suggestion}</p>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
+            </main>
+        </div>
+    );
+}
+
+export default function AnalysisPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-black text-white flex items-center justify-center">Loading...</div>}>
+            <AnalysisContent />
+        </Suspense>
+    );
+}
