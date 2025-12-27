@@ -211,6 +211,7 @@ function AnalysisContent() {
                                         landmarks={landmarks}
                                         width={videoDimensions.width}
                                         height={videoDimensions.height}
+                                        currentIssues={currentIssues}
                                     />
                                 </div>
                             )}

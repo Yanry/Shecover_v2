@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { PoseLandmarks } from "@/lib/analysis/types";
+import { PoseLandmarks, AssessmentIssue } from "@/lib/analysis/types";
 import { Pose } from "@mediapipe/pose";
 import { POSE_CONNECTIONS } from "@/lib/mediapipe_constants";
 
@@ -10,9 +10,10 @@ interface PoseVisualizerProps {
     landmarks: PoseLandmarks | null;
     width: number;
     height: number;
+    currentIssues?: AssessmentIssue[];
 }
 
-export function PoseVisualizer({ landmarks, width, height }: PoseVisualizerProps) {
+export function PoseVisualizer({ landmarks, width, height, currentIssues = [] }: PoseVisualizerProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     useEffect(() => {
@@ -38,14 +39,53 @@ export function PoseVisualizer({ landmarks, width, height }: PoseVisualizerProps
             return (lm.visibility || 0) > 0.5 ? lm : null;
         };
 
-        // 1. Draw Skeleton Connectors (Base Layer)
+        // Helper: Get color for a joint based on current issues
+        const getJointColor = (jointIndex: number): { color: string; riskLevel: 'safe' | 'medium' | 'high' } => {
+            // Check if this joint is related to any high-risk issues
+            const highRiskIssue = currentIssues.find(
+                issue => issue.riskLevel === 'high' && issue.relatedJoints?.includes(jointIndex)
+            );
+            if (highRiskIssue) {
+                return { color: '#FF4444', riskLevel: 'high' }; // Red for high risk
+            }
+
+            // Check for medium-risk issues
+            const mediumRiskIssue = currentIssues.find(
+                issue => issue.riskLevel === 'medium' && issue.relatedJoints?.includes(jointIndex)
+            );
+            if (mediumRiskIssue) {
+                return { color: '#FACC15', riskLevel: 'medium' }; // Yellow for medium risk
+            }
+
+            // Default safe color
+            return { color: '#E1F863', riskLevel: 'safe' }; // Neon green for safe
+        };
+
+        // Helper: Get color for a connection based on its endpoints
+        const getConnectionColor = (startIdx: number, endIdx: number): string => {
+            const startRisk = getJointColor(startIdx);
+            const endRisk = getJointColor(endIdx);
+
+            // If either endpoint is high risk, connection is red
+            if (startRisk.riskLevel === 'high' || endRisk.riskLevel === 'high') {
+                return 'rgba(255, 68, 68, 0.6)'; // Red with transparency
+            }
+            // If either endpoint is medium risk, connection is yellow
+            if (startRisk.riskLevel === 'medium' || endRisk.riskLevel === 'medium') {
+                return 'rgba(250, 204, 21, 0.6)'; // Yellow with transparency
+            }
+            // Otherwise safe/default
+            return 'rgba(255, 255, 255, 0.4)'; // White with transparency
+        };
+
+        // 1. Draw Skeleton Connectors (Base Layer) - with risk-based colors
         POSE_CONNECTIONS.forEach(([startIdx, endIdx]) => {
             const start = getPoint(startIdx);
             const end = getPoint(endIdx);
 
             if (start && end) {
-                // Base skeleton - clearer visibility
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                //Use risk-based color for connections
+                ctx.strokeStyle = getConnectionColor(startIdx, endIdx);
                 ctx.lineWidth = 2;
                 ctx.shadowBlur = 0; // No glow for lines
                 ctx.beginPath();
@@ -55,15 +95,16 @@ export function PoseVisualizer({ landmarks, width, height }: PoseVisualizerProps
             }
         });
 
-        // 2. Draw Standard Landmarks (Dimmed)
+        // 2. Draw Standard Landmarks (Dimmed) - with risk-based colors
         visibleLandmarks.forEach((lm, index) => {
             // Skip core points (shoulders 11/12, hips 23/24) as we will draw them specially
             if ([11, 12, 23, 24].includes(index)) return;
 
             if ((lm.visibility || 0) > 0.5) {
+                const jointRisk = getJointColor(index);
                 ctx.beginPath();
                 ctx.arc(lm.x, lm.y, 3, 0, 2 * Math.PI);
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.fillStyle = jointRisk.color;
                 ctx.shadowBlur = 0;
                 ctx.fill();
             }
@@ -135,24 +176,39 @@ export function PoseVisualizer({ landmarks, width, height }: PoseVisualizerProps
             ctx.fill();
             ctx.stroke();
 
-            // Set Glow for Axes
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = '#E1F863';
+            // Set Glow for Axes - calculate risk-based colors
+            const leftShoulderRisk = getJointColor(11);
+            const rightShoulderRisk = getJointColor(12);
+            const leftHipRisk = getJointColor(23);
+            const rightHipRisk = getJointColor(24);
 
-            // B. Draw Thorax Axis (Shoulder Girdle) - Pink -> Red/Neon
+            // Determine axis colors based on worst risk level of endpoints
+            const shoulderRisk = leftShoulderRisk.riskLevel === 'high' || rightShoulderRisk.riskLevel === 'high' ? 'high' :
+                leftShoulderRisk.riskLevel === 'medium' || rightShoulderRisk.riskLevel === 'medium' ? 'medium' : 'safe';
+            const hipRisk = leftHipRisk.riskLevel === 'high' || rightHipRisk.riskLevel === 'high' ? 'high' :
+                leftHipRisk.riskLevel === 'medium' || rightHipRisk.riskLevel === 'medium' ? 'medium' : 'safe';
+
+            const shoulderColor = shoulderRisk === 'high' ? '#FF4444' : shoulderRisk === 'medium' ? '#FACC15' : '#E1F863';
+            const hipColor = hipRisk === 'high' ? '#FF4444' : hipRisk === 'medium' ? '#FACC15' : '#E1F863';
+
+            ctx.shadowBlur = 10;
+
+            // B. Draw Thorax Axis (Shoulder Girdle) - risk-based color
+            ctx.shadowColor = shoulderColor;
             ctx.beginPath();
             ctx.moveTo(leftShoulder.x, leftShoulder.y);
             ctx.lineTo(rightShoulder.x, rightShoulder.y);
-            ctx.strokeStyle = '#E1F863'; // Neon Green
+            ctx.strokeStyle = shoulderColor;
             ctx.lineWidth = 4;
             ctx.lineCap = 'round';
             ctx.stroke();
 
-            // C. Draw Pelvis Axis (Hip Girdle) - Green -> Neon Green
+            // C. Draw Pelvis Axis (Hip Girdle) - risk-based color
+            ctx.shadowColor = hipColor;
             ctx.beginPath();
             ctx.moveTo(leftHip.x, leftHip.y);
             ctx.lineTo(rightHip.x, rightHip.y);
-            ctx.strokeStyle = '#E1F863'; // Neon Green
+            ctx.strokeStyle = hipColor;
             ctx.lineWidth = 4;
             ctx.lineCap = 'round';
             ctx.stroke();
@@ -168,7 +224,7 @@ export function PoseVisualizer({ landmarks, width, height }: PoseVisualizerProps
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // E. Draw Joints with Depth Perception (The "Points")
+            // E. Draw Joints with Depth Perception (The "Points") - risk-based colors
             const drawJoint = (pt: { x: number, y: number, z: number }, color: string) => {
                 const r = getRadius(pt.z);
 
@@ -191,13 +247,11 @@ export function PoseVisualizer({ landmarks, width, height }: PoseVisualizerProps
                 ctx.fill();
             };
 
-            const neonGreen = '#E1F863';
+            drawJoint(leftShoulder, leftShoulderRisk.color);
+            drawJoint(rightShoulder, rightShoulderRisk.color);
 
-            drawJoint(leftShoulder, neonGreen);
-            drawJoint(rightShoulder, neonGreen);
-
-            drawJoint(leftHip, neonGreen);
-            drawJoint(rightHip, neonGreen);
+            drawJoint(leftHip, leftHipRisk.color);
+            drawJoint(rightHip, rightHipRisk.color);
 
             // Draw Center Points (smaller)
             // Thorax Center
@@ -206,10 +260,10 @@ export function PoseVisualizer({ landmarks, width, height }: PoseVisualizerProps
 
             // Abdomen Center
             ctx.beginPath(); ctx.arc(abdomenCenter.x, abdomenCenter.y, 4, 0, 2 * Math.PI);
-            ctx.fillStyle = neonGreen; ctx.fill();
+            ctx.fillStyle = shoulderColor; ctx.fill();
         }
 
-    }, [landmarks, width, height]);
+    }, [landmarks, width, height, currentIssues]);
 
     return (
         <canvas
