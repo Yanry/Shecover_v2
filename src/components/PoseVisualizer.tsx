@@ -77,19 +77,63 @@ export function PoseVisualizer({ landmarks, width, height }: PoseVisualizerProps
 
         if (leftShoulder && rightShoulder && leftHip && rightHip) {
 
+
             // Helper: Calculate size based on Z depth (closer = bigger)
             // Z is typically roughly -1 to 1 meter relative to hips center
             const getRadius = (z: number) => Math.max(4, 6 - (z * 5));
 
-            // A. Draw Torso Plane (Trapezoid) to show twist/shear
+            // Calculate centers for later use
+            const thoraxCenter = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
+            const hipCenter = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
+            const abdomenCenter = { x: (thoraxCenter.x + hipCenter.x) / 2, y: (thoraxCenter.y + hipCenter.y) / 2 };
+
+            // === PELVIS TRAPEZOID (上宽下窄) ===
+            // Simulate pubic bone below hip line
+            const hipWidth = Math.abs(rightHip.x - leftHip.x);
+            const pelvisBottom = hipCenter.y + hipWidth * 0.35; // Pubic bone position below hips
+            const pubicWidth = hipWidth * 0.3; // Narrower at bottom
+
             ctx.beginPath();
-            ctx.moveTo(leftShoulder.x, leftShoulder.y);
-            ctx.lineTo(rightShoulder.x, rightShoulder.y);
+            ctx.moveTo(leftHip.x, leftHip.y);
+            ctx.lineTo(rightHip.x, rightHip.y);
+            ctx.lineTo(hipCenter.x - pubicWidth / 2, pelvisBottom);
+            ctx.lineTo(hipCenter.x + pubicWidth / 2, pelvisBottom);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(229, 222, 255, 0.08)'; // Lavender tint for pelvis
+            ctx.strokeStyle = 'rgba(229, 222, 255, 0.3)';
+            ctx.lineWidth = 1.5;
+            ctx.fill();
+            ctx.stroke();
+
+            // === TORSO - LOWER TRAPEZOID (上窄下宽) ===
+            // From ~waist/abdomen to hips - narrower at top, wider at bottom
+            const waistWidth = hipWidth * 0.75; // Waist narrower than hips
+
+            ctx.beginPath();
+            ctx.moveTo(abdomenCenter.x + waistWidth / 2, abdomenCenter.y);
+            ctx.lineTo(abdomenCenter.x - waistWidth / 2, abdomenCenter.y);
             ctx.lineTo(rightHip.x, rightHip.y);
             ctx.lineTo(leftHip.x, leftHip.y);
             ctx.closePath();
-            ctx.fillStyle = 'rgba(225, 248, 99, 0.05)'; // #E1F863 very faint
+            ctx.fillStyle = 'rgba(225, 248, 99, 0.06)'; // Neon green tint
+            ctx.strokeStyle = 'rgba(225, 248, 99, 0.25)';
+            ctx.lineWidth = 1.5;
             ctx.fill();
+            ctx.stroke();
+
+            // === TORSO - UPPER TRAPEZOID (上宽下窄) ===
+            // From shoulders to ~waist - wider at top, narrower at bottom
+            ctx.beginPath();
+            ctx.moveTo(leftShoulder.x, leftShoulder.y);
+            ctx.lineTo(rightShoulder.x, rightShoulder.y);
+            ctx.lineTo(abdomenCenter.x - waistWidth / 2, abdomenCenter.y);
+            ctx.lineTo(abdomenCenter.x + waistWidth / 2, abdomenCenter.y);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(225, 248, 99, 0.08)'; // Neon green tint, slightly stronger
+            ctx.strokeStyle = 'rgba(225, 248, 99, 0.3)';
+            ctx.lineWidth = 1.5;
+            ctx.fill();
+            ctx.stroke();
 
             // Set Glow for Axes
             ctx.shadowBlur = 10;
@@ -113,11 +157,7 @@ export function PoseVisualizer({ landmarks, width, height }: PoseVisualizerProps
             ctx.lineCap = 'round';
             ctx.stroke();
 
-            // D. Draw Spine / Abdomen Center Line (Yellow)
-            const thoraxCenter = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
-            const hipCenter = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
-            const abdomenCenter = { x: (thoraxCenter.x + hipCenter.x) / 2, y: (thoraxCenter.y + hipCenter.y) / 2 };
-
+            // D. Draw Spine / Abdomen Center Line
             ctx.beginPath();
             ctx.moveTo(thoraxCenter.x, thoraxCenter.y);
             ctx.lineTo(hipCenter.x, hipCenter.y);
