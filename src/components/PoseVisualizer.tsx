@@ -45,8 +45,9 @@ export function PoseVisualizer({ landmarks, width, height }: PoseVisualizerProps
 
             if (start && end) {
                 // Base skeleton - clearer visibility
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
-                ctx.lineWidth = 3;
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.lineWidth = 2;
+                ctx.shadowBlur = 0; // No glow for lines
                 ctx.beginPath();
                 ctx.moveTo(start.x, start.y);
                 ctx.lineTo(end.x, end.y);
@@ -61,8 +62,9 @@ export function PoseVisualizer({ landmarks, width, height }: PoseVisualizerProps
 
             if ((lm.visibility || 0) > 0.5) {
                 ctx.beginPath();
-                ctx.arc(lm.x, lm.y, 2, 0, 2 * Math.PI);
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.arc(lm.x, lm.y, 3, 0, 2 * Math.PI);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.shadowBlur = 0;
                 ctx.fill();
             }
         });
@@ -77,7 +79,7 @@ export function PoseVisualizer({ landmarks, width, height }: PoseVisualizerProps
 
             // Helper: Calculate size based on Z depth (closer = bigger)
             // Z is typically roughly -1 to 1 meter relative to hips center
-            const getRadius = (z: number) => Math.max(4, 8 - (z * 10));
+            const getRadius = (z: number) => Math.max(4, 6 - (z * 5));
 
             // A. Draw Torso Plane (Trapezoid) to show twist/shear
             ctx.beginPath();
@@ -86,24 +88,28 @@ export function PoseVisualizer({ landmarks, width, height }: PoseVisualizerProps
             ctx.lineTo(rightHip.x, rightHip.y);
             ctx.lineTo(leftHip.x, leftHip.y);
             ctx.closePath();
-            ctx.fillStyle = 'rgba(100, 100, 255, 0.1)'; // Very faint blue fill
+            ctx.fillStyle = 'rgba(225, 248, 99, 0.05)'; // #E1F863 very faint
             ctx.fill();
 
-            // B. Draw Thorax Axis (Shoulder Girdle) - Pink
+            // Set Glow for Axes
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#E1F863';
+
+            // B. Draw Thorax Axis (Shoulder Girdle) - Pink -> Red/Neon
             ctx.beginPath();
             ctx.moveTo(leftShoulder.x, leftShoulder.y);
             ctx.lineTo(rightShoulder.x, rightShoulder.y);
-            ctx.strokeStyle = 'rgba(236, 72, 153, 1.0)'; // Pink-500 Full Opacity
-            ctx.lineWidth = 6;
+            ctx.strokeStyle = '#E1F863'; // Neon Green
+            ctx.lineWidth = 4;
             ctx.lineCap = 'round';
             ctx.stroke();
 
-            // C. Draw Pelvis Axis (Hip Girdle) - Green
+            // C. Draw Pelvis Axis (Hip Girdle) - Green -> Neon Green
             ctx.beginPath();
             ctx.moveTo(leftHip.x, leftHip.y);
             ctx.lineTo(rightHip.x, rightHip.y);
-            ctx.strokeStyle = 'rgba(34, 197, 94, 1.0)'; // Green-500 Full Opacity
-            ctx.lineWidth = 6;
+            ctx.strokeStyle = '#E1F863'; // Neon Green
+            ctx.lineWidth = 4;
             ctx.lineCap = 'round';
             ctx.stroke();
 
@@ -115,9 +121,10 @@ export function PoseVisualizer({ landmarks, width, height }: PoseVisualizerProps
             ctx.beginPath();
             ctx.moveTo(thoraxCenter.x, thoraxCenter.y);
             ctx.lineTo(hipCenter.x, hipCenter.y);
-            ctx.strokeStyle = 'rgba(234, 179, 8, 0.8)'; // Yellow-500
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.lineWidth = 1;
             ctx.setLineDash([4, 4]); // Dashed spine
+            ctx.shadowBlur = 0; // Remove glow for spine
             ctx.stroke();
             ctx.setLineDash([]);
 
@@ -126,38 +133,40 @@ export function PoseVisualizer({ landmarks, width, height }: PoseVisualizerProps
                 const r = getRadius(pt.z);
 
                 // Glow
-                ctx.beginPath();
-                ctx.arc(pt.x, pt.y, r + 4, 0, 2 * Math.PI);
-                ctx.fillStyle = color.replace('1)', '0.3)');
-                ctx.fill();
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = color;
 
-                // Core
                 ctx.beginPath();
                 ctx.arc(pt.x, pt.y, r, 0, 2 * Math.PI);
                 ctx.fillStyle = color;
                 ctx.fill();
 
-                // Stroke
-                ctx.strokeStyle = '#fff';
-                ctx.lineWidth = 1;
-                ctx.stroke();
+                // Reset glow
+                ctx.shadowBlur = 0;
+
+                // Center dot
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, r / 2, 0, 2 * Math.PI);
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fill();
             };
 
-            drawJoint(leftShoulder, 'rgba(236, 72, 153, 1)');
-            drawJoint(rightShoulder, 'rgba(236, 72, 153, 1)');
+            const neonGreen = '#E1F863';
 
-            drawJoint(leftHip, 'rgba(34, 197, 94, 1)');
-            drawJoint(rightHip, 'rgba(34, 197, 94, 1)');
+            drawJoint(leftShoulder, neonGreen);
+            drawJoint(rightShoulder, neonGreen);
+
+            drawJoint(leftHip, neonGreen);
+            drawJoint(rightHip, neonGreen);
 
             // Draw Center Points (smaller)
             // Thorax Center
-            ctx.beginPath(); ctx.arc(thoraxCenter.x, thoraxCenter.y, 4, 0, 2 * Math.PI);
-            ctx.fillStyle = 'rgba(236, 72, 153, 1)'; ctx.fill();
+            ctx.beginPath(); ctx.arc(thoraxCenter.x, thoraxCenter.y, 3, 0, 2 * Math.PI);
+            ctx.fillStyle = '#FFFFFF'; ctx.fill();
 
             // Abdomen Center
-            ctx.beginPath(); ctx.arc(abdomenCenter.x, abdomenCenter.y, 6, 0, 2 * Math.PI);
-            ctx.fillStyle = 'rgba(234, 179, 8, 1)'; ctx.fill();
-            ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+            ctx.beginPath(); ctx.arc(abdomenCenter.x, abdomenCenter.y, 4, 0, 2 * Math.PI);
+            ctx.fillStyle = neonGreen; ctx.fill();
         }
 
     }, [landmarks, width, height]);

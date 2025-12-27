@@ -25,9 +25,19 @@ export function RiskTimeline({ issues, duration, currentTime, onSeek }: Timeline
         // Clear
         ctx.clearRect(0, 0, width, height);
 
-        // Background
-        ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
+        // Background - Transparent with border
+        ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
         ctx.fillRect(0, 0, width, height);
+
+        // Draw grid lines
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let i = 0; i < width; i += 20) {
+            ctx.moveTo(i, 0);
+            ctx.lineTo(i, height);
+        }
+        ctx.stroke();
 
         // Draw Markers
         issues.forEach((entry) => {
@@ -37,21 +47,34 @@ export function RiskTimeline({ issues, duration, currentTime, onSeek }: Timeline
 
             // Color based on risk level
             const hasHighRisk = entry.issues.some(i => i.riskLevel === 'high');
-            ctx.fillStyle = hasHighRisk ? "#EF4444" : "#EAB308"; // Red : Yellow
+            ctx.fillStyle = hasHighRisk ? "#FF4444" : "#E1F863"; // Red : Neon Green (used for medium risk in this design context? No, wait. Medium is Yellow in guideline. High is Red. Low is Green. Let's stick to Red for High, Yellow for Mid)
+            // Correction: Guideline says: High=Red, Mid=Lavender/Yellow? 
+            // Let's use Red for High, Yellow for Mid as per AnalysisPage logic.
+            ctx.fillStyle = hasHighRisk ? "#FF4444" : "#FACC15"; // Red-500 : Yellow-400
 
-            // Draw a thin line
-            ctx.fillRect(x, 0, 2, height);
+            // Glow effect
+            ctx.shadowColor = ctx.fillStyle;
+            ctx.shadowBlur = 8;
+
+            // Draw a dot or line? Line is better for timeline
+            ctx.fillRect(x, 4, 3, height - 8);
+
+            ctx.shadowBlur = 0;
         });
 
         // Draw Playhead
         const playheadX = (currentTime / duration) * width;
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillRect(playheadX - 1, 0, 2, height);
+
+        ctx.fillStyle = "#E1F863"; // Neon Turn
+        ctx.shadowColor = "#E1F863";
+        ctx.shadowBlur = 10;
+        ctx.fillRect(playheadX - 1, 0, 3, height);
+        ctx.shadowBlur = 0;
 
     }, [issues, duration, currentTime]);
 
     return (
-        <div className="w-full h-12 bg-neutral-900 rounded-md overflow-hidden relative cursor-pointer"
+        <div className="w-full h-12 bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl overflow-hidden relative cursor-pointer hover:bg-white/10 transition-colors"
             onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const x = e.clientX - rect.left;

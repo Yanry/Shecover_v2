@@ -153,17 +153,17 @@ function AnalysisContent() {
 
     return (
         <div className="min-h-screen bg-black text-white flex flex-col">
-            {/* Sticky Mobile Header */}
-            <div className="sticky top-0 z-50 bg-black/80 backdrop-blur-md border-b border-white/10 px-4 py-3 flex items-center justify-between">
-                <Link href="/" className="inline-flex items-center text-white/70 hover:text-white transition-colors">
+            {/* Sticky Mobile Header - Glass Effect */}
+            <div className="sticky top-0 z-50 bg-black/20 backdrop-blur-xl border-b border-white/10 px-4 py-3 flex items-center justify-between supports-[backdrop-filter]:bg-black/10">
+                <Link href="/" className="inline-flex items-center text-white/90 hover:text-primary transition-colors p-2 hover:bg-white/10 rounded-full">
                     <ArrowLeft className="w-5 h-5" />
                 </Link>
 
                 <Select value={mode} onValueChange={(v: AnalysisMode) => setMode(v)}>
-                    <SelectTrigger className="w-[160px] h-9 bg-white/5 border-white/10 text-white text-xs">
+                    <SelectTrigger className="w-[160px] h-9 bg-white/10 border-white/20 text-white text-xs backdrop-blur-md hover:bg-white/20 transition-all rounded-full">
                         <SelectValue placeholder="分析模式" />
                     </SelectTrigger>
-                    <SelectContent className="bg-neutral-900 border-white/10 text-white">
+                    <SelectContent className="bg-black/90 border-white/10 text-white backdrop-blur-xl">
                         <SelectItem value="standing">自然站立</SelectItem>
                         <SelectItem value="single_leg">单腿站立</SelectItem>
                         <SelectItem value="walking">自然步行</SelectItem>
@@ -184,7 +184,13 @@ function AnalysisContent() {
                 ) : (
                     <div className="flex flex-col gap-4">
                         {/* Player */}
-                        <div className="relative aspect-[3/4] w-full bg-neutral-900 rounded-xl overflow-hidden shadow-2xl shadow-purple-900/10 border border-white/10">
+                        <div
+                            className="relative max-w-full mx-auto bg-black/40 rounded-3xl overflow-hidden shadow-2xl shadow-black/50 border border-white/10"
+                            style={{
+                                aspectRatio: videoDimensions.width > 0 ? `${videoDimensions.width} / ${videoDimensions.height}` : '3/4',
+                                maxHeight: '70vh'
+                            }}
+                        >
                             <video
                                 ref={videoRef}
                                 src={videoUrl}
@@ -210,8 +216,8 @@ function AnalysisContent() {
                             )}
 
 
-                            {/* Play Controls Overlay */}
-                            <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-6 pointer-events-auto">
+                            {/* Play Controls Overlay - Glass Bar */}
+                            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-6 px-6 py-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-full shadow-lg pointer-events-auto hover:bg-white/20 transition-all">
                                 <Button onClick={() => {
                                     if (videoRef.current) {
                                         videoRef.current.currentTime = 0;
@@ -219,12 +225,12 @@ function AnalysisContent() {
                                         setCurrentIssues([]);
                                         setIssueHistory([]);
                                     }
-                                }} variant="ghost" size="icon" className="text-white/80 hover:text-white hover:bg-black/40 rounded-full">
-                                    <RotateCcw className="w-6 h-6" />
+                                }} variant="ghost" size="icon" className="text-white hover:text-primary hover:bg-transparent rounded-full w-10 h-10">
+                                    <RotateCcw className="w-5 h-5" />
                                 </Button>
 
-                                <Button onClick={togglePlay} variant="secondary" size="icon" className="rounded-full w-14 h-14 bg-white text-black hover:bg-white/90 shadow-lg">
-                                    {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-1" />}
+                                <Button onClick={togglePlay} variant="ghost" size="icon" className="rounded-full w-12 h-12 bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20">
+                                    {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 ml-1 fill-current" />}
                                 </Button>
                             </div>
                         </div>
@@ -239,33 +245,41 @@ function AnalysisContent() {
                             />
                         )}
 
-                        {/* 2. Analysis Report - Bottom Sheet Style */}
-                        <Card className="bg-neutral-900/50 border-white/10 text-white backdrop-blur-md">
-                            <CardHeader className="pb-3 border-b border-white/5">
-                                <CardTitle className="flex items-center space-x-2 text-base">
-                                    {mode === 'climbing' ? <Activity className="w-4 h-4 text-red-500" /> : <AlertTriangle className="w-4 h-4 text-yellow-500" />}
-                                    <span>{mode === 'climbing' ? '风险记录' : '体态报告'}</span>
+                        {/* 2. Analysis Report - Glass Card */}
+                        <Card className="bg-white/10 border-white/20 text-white backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden mt-2">
+                            <CardHeader className="pb-3 border-b border-white/10 bg-white/5">
+                                <CardTitle className="flex items-center space-x-2 text-base font-medium">
+                                    {mode === 'climbing' ? <Activity className="w-4 h-4 text-primary" /> : <AlertTriangle className="w-4 h-4 text-primary" />}
+                                    <span className="text-white/90">{mode === 'climbing' ? '风险记录' : '体态报告'}</span>
+                                    {currentIssues.length > 0 && (
+                                        <span className="ml-auto text-xs font-mono bg-primary/20 text-primary px-2 py-0.5 rounded-full border border-primary/20">
+                                            {currentIssues.length} ISSUES
+                                        </span>
+                                    )}
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="pt-4 max-h-[300px] overflow-y-auto space-y-3">
+                            <CardContent className="pt-4 max-h-[300px] overflow-y-auto space-y-3 custom-scrollbar">
                                 {currentIssues.length === 0 ? (
-                                    <div className="text-center text-white/30 py-4 text-sm">
-                                        {isPlaying ? "正在分析中..." : "等待播放..."}
+                                    <div className="flex flex-col items-center justify-center py-8 text-white/30 space-y-2">
+                                        <Activity className="w-8 h-8 opacity-20" />
+                                        <div className="text-sm font-light">
+                                            {isPlaying ? "正在分析体态..." : "等待播放视频..."}
+                                        </div>
                                     </div>
                                 ) : (
                                     currentIssues.map((issue, idx) => (
-                                        <div key={`${issue.id}-${idx}`} className="p-3 rounded-lg bg-white/5 border border-white/10 space-y-1.5 animate-in fade-in slide-in-from-bottom-2">
+                                        <div key={`${issue.id}-${idx}`} className="p-4 rounded-xl bg-black/20 border border-white/10 space-y-2 animate-in fade-in slide-in-from-bottom-2 hover:bg-black/30 transition-colors">
                                             <div className="flex items-center justify-between">
-                                                <h3 className="font-medium text-purple-300 text-sm">{issue.name}</h3>
-                                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${issue.riskLevel === 'high' ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'
+                                                <h3 className="font-medium text-white text-sm">{issue.name}</h3>
+                                                <span className={`text-[10px] px-2 py-1 rounded-full font-mono uppercase tracking-wider ${issue.riskLevel === 'high' ? 'bg-red-500/20 text-red-400 border border-red-500/20' : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/20'
                                                     }`}>
-                                                    {issue.riskLevel === 'high' ? '高风险' : '中风险'}
+                                                    {issue.riskLevel === 'high' ? 'High Risk' : 'Medium Risk'}
                                                 </span>
                                             </div>
-                                            <p className="text-xs text-white/60">{issue.description}</p>
-                                            <div className="flex items-start space-x-1.5 pt-1">
-                                                <CheckCircle className="w-3 h-3 text-green-400 mt-0.5" />
-                                                <p className="text-[10px] text-white/40">{issue.suggestion}</p>
+                                            <p className="text-xs text-white/60 leading-relaxed">{issue.description}</p>
+                                            <div className="flex items-start space-x-2 pt-1 border-t border-white/5 mt-2">
+                                                <CheckCircle className="w-3 h-3 text-primary mt-0.5 shrink-0" />
+                                                <p className="text-[10px] text-white/50 font-light">{issue.suggestion}</p>
                                             </div>
                                         </div>
                                     ))

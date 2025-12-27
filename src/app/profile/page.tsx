@@ -60,7 +60,7 @@ export default function ProfilePage() {
                     </p>
                 </div>
 
-                <Card className="bg-white/5 border-white/10 text-white backdrop-blur-md">
+                <Card className="bg-card border-white/5 text-white shadow-xl shadow-black/20 rounded-[24px]">
                     <form onSubmit={handleSubmit}>
                         <CardHeader>
                             <CardTitle>基本信息</CardTitle>
@@ -72,7 +72,7 @@ export default function ProfilePage() {
                                 <Input
                                     id="height"
                                     type="number"
-                                    className="bg-black/20 border-white/10 text-white focus:border-purple-500"
+                                    className="bg-secondary/10 border-white/5 text-white focus:border-primary/50 focus:ring-primary/20 rounded-xl h-12"
                                     value={formData.heightCm}
                                     onChange={(e) => setFormData({ ...formData, heightCm: Number(e.target.value) })}
                                     required
@@ -83,13 +83,13 @@ export default function ProfilePage() {
                                 <Input
                                     id="weight"
                                     type="number"
-                                    className="bg-black/20 border-white/10 text-white focus:border-purple-500"
+                                    className="bg-secondary/10 border-white/5 text-white focus:border-primary/50 focus:ring-primary/20 rounded-xl h-12"
                                     value={formData.weightKg || ""}
                                     onChange={(e) => setFormData({ ...formData, weightKg: Number(e.target.value) })}
                                 />
                             </div>
 
-                            <Separator className="bg-white/10" />
+                            <Separator className="bg-white/5" />
 
                             <div className="space-y-2">
                                 <Label htmlFor="level">训练水平</Label>
@@ -97,10 +97,10 @@ export default function ProfilePage() {
                                     value={formData.trainingLevel}
                                     onValueChange={(val: any) => setFormData({ ...formData, trainingLevel: val })}
                                 >
-                                    <SelectTrigger className="bg-black/20 border-white/10 text-white">
+                                    <SelectTrigger className="bg-secondary/10 border-white/5 text-white rounded-xl h-12 focus:ring-primary/20">
                                         <SelectValue placeholder="选择水平" />
                                     </SelectTrigger>
-                                    <SelectContent className="bg-neutral-900 border-white/10 text-white">
+                                    <SelectContent className="bg-card border-white/5 text-white">
                                         <SelectItem value="beginner">新手 (0-1年)</SelectItem>
                                         <SelectItem value="intermediate">规律训练 (1-3年)</SelectItem>
                                         <SelectItem value="advanced">高阶 (3年以上)</SelectItem>
@@ -108,8 +108,8 @@ export default function ProfilePage() {
                                 </Select>
                             </div>
                         </CardContent>
-                        <CardFooter>
-                            <Button type="submit" className="w-full bg-white text-black hover:bg-neutral-200 rounded-full font-medium">
+                        <CardFooter className="pt-4">
+                            <Button type="submit" className="w-full bg-primary text-primary-foreground hover:bg-primary/90 rounded-full font-bold h-12 shadow-[0_0_20px_rgba(225,248,99,0.2)] hover:shadow-[0_0_30px_rgba(225,248,99,0.4)] transition-all">
                                 <Save className="w-4 h-4 mr-2" />
                                 保存档案
                             </Button>
