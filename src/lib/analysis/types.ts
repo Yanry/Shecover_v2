@@ -49,8 +49,9 @@ export interface PainProfile {
 
 export interface UserProfile {
   heightCm: number;
-  weightKg?: number;
-  trainingLevel: 'beginner' | 'intermediate' | 'advanced';
+  weightKg?: string; // e.g., "50-55kg"
+  sportTypes: string[]; // e.g., ["running", "climbing"]
+  dominantSide: 'left' | 'right' | 'uncertain';
   injuryHistory: string[];
   painProfile?: PainProfile;
 }
