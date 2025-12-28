@@ -8,9 +8,11 @@ interface TimelineProps {
     duration: number; // Video duration in seconds
     currentTime: number;
     onSeek: (time: number) => void;
+    activeIssueId?: string | null;
+    activeSegmentStart?: number | null;
 }
 
-export function RiskTimeline({ issues, duration, currentTime, onSeek }: TimelineProps) {
+export function RiskTimeline({ issues, duration, currentTime, onSeek, activeIssueId, activeSegmentStart }: TimelineProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     useEffect(() => {
@@ -45,27 +47,73 @@ export function RiskTimeline({ issues, duration, currentTime, onSeek }: Timeline
         }
         ctx.stroke();
 
-        // Draw Markers
+        // Draw Markers - Grouped into continuous segments
+        const issueToSegments: Record<string, { start: number; end: number; risk: string }[]> = {};
+
         issues.forEach((entry) => {
-            if (entry.issues.length === 0) return;
+            entry.issues.forEach(issue => {
+                const segments = issueToSegments[issue.id] || [];
+                const lastSegment = segments[segments.length - 1];
 
-            const x = (entry.time / duration) * width;
+                // If this detection is within 0.5s of the last segment, extend it
+                if (lastSegment && entry.time - lastSegment.end < 0.5) {
+                    lastSegment.end = entry.time;
+                    // Keep the highest risk level
+                    if (issue.riskLevel === 'high') lastSegment.risk = 'high';
+                } else {
+                    segments.push({
+                        start: entry.time,
+                        end: entry.time,
+                        risk: issue.riskLevel
+                    });
+                }
+                issueToSegments[issue.id] = segments;
+            });
+        });
 
-            // Color based on risk level
-            const hasHighRisk = entry.issues.some(i => i.riskLevel === 'high');
-            ctx.fillStyle = hasHighRisk ? "#FF4444" : "#E1F863"; // Red : Neon Green (used for medium risk in this design context? No, wait. Medium is Yellow in guideline. High is Red. Low is Green. Let's stick to Red for High, Yellow for Mid)
-            // Correction: Guideline says: High=Red, Mid=Lavender/Yellow? 
-            // Let's use Red for High, Yellow for Mid as per AnalysisPage logic.
-            ctx.fillStyle = hasHighRisk ? "#FF4444" : "#FACC15"; // Red-500 : Yellow-400
+        // Loop through all issues and draw their segments
+        Object.entries(issueToSegments).forEach(([issueId, segments]) => {
+            const isIssueMatched = activeIssueId === issueId;
 
-            // Glow effect
-            ctx.shadowColor = ctx.fillStyle;
-            ctx.shadowBlur = 8;
+            segments.forEach(seg => {
+                const isSegmentMatched = isIssueMatched &&
+                    typeof activeSegmentStart === 'number' &&
+                    Math.abs(seg.start - activeSegmentStart) < 0.01;
 
-            // Draw a dot or line? Line is better for timeline
-            ctx.fillRect(x, 4, 3, height - 8);
+                const xStart = (seg.start / duration) * width;
+                const xEnd = (seg.end / duration) * width;
+                const markerWidth = Math.max(isSegmentMatched ? 4 : (isIssueMatched ? 3 : 2), xEnd - xStart);
 
-            ctx.shadowBlur = 0;
+                let markerColor = seg.risk === 'high' ? "#FF4444" : "#FACC15";
+
+                if (isSegmentMatched) {
+                    markerColor = seg.risk === 'high' ? "#FF6666" : "#E1F863"; // Brighter highlight
+                    ctx.shadowBlur = 15;
+                    ctx.globalAlpha = 1.0;
+                } else if (isIssueMatched) {
+                    // Other segments of the same issue are slightly dimmed compared to active one
+                    ctx.shadowBlur = 4;
+                    ctx.globalAlpha = 0.5;
+                } else {
+                    // Segments of other issues
+                    ctx.shadowBlur = 6;
+                    ctx.globalAlpha = 0.8;
+                }
+
+                ctx.fillStyle = markerColor;
+                ctx.shadowColor = markerColor;
+
+                // Draw segment
+                ctx.beginPath();
+                if (ctx.roundRect) {
+                    ctx.roundRect(xStart, 4, markerWidth, height - 8, 2);
+                    ctx.fill();
+                } else {
+                    ctx.fillRect(xStart, 4, markerWidth, height - 8);
+                }
+
+                ctx.globalAlpha = 1.0; // Reset
+            });
         });
 
         // Draw Playhead

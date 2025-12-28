@@ -41,6 +41,11 @@ function AnalysisContent() {
     // History for timeline
     const [issueHistory, setIssueHistory] = useState<{ time: number; issues: AssessmentIssue[] }[]>([]);
 
+    // Interactive navigation state
+    const [issueClickCounts, setIssueClickCounts] = useState<Record<string, number>>({});
+    const [activeIssueId, setActiveIssueId] = useState<string | null>(null);
+    const [activeSegmentStart, setActiveSegmentStart] = useState<number | null>(null);
+
     const videoRef = useRef<HTMLVideoElement>(null);
     const requestRef = useRef<number | null>(null);
 
@@ -51,6 +56,9 @@ function AnalysisContent() {
         // Reset history when mode changes
         setIssueHistory([]);
         setCurrentIssues([]);
+        setIssueClickCounts({});
+        setActiveIssueId(null);
+        setActiveSegmentStart(null);
     }, [mode]);
 
     // 1. Initialize Engine
@@ -106,6 +114,9 @@ function AnalysisContent() {
             setVideoUrl(url);
             setIssueHistory([]); // Reset history
             setCurrentIssues([]); // Reset current issues
+            setIssueClickCounts({}); // Reset clicks
+            setActiveIssueId(null); // Reset highlight
+            setActiveSegmentStart(null); // Reset segment highlight
             return () => URL.revokeObjectURL(url);
         }
     }, [videoFile]);
@@ -148,7 +159,47 @@ function AnalysisContent() {
         if (videoRef.current) {
             videoRef.current.currentTime = time;
             setCurrentTime(time);
+
+            // On seek, if paused, process one frame immediately to update skeleton
+            if (!isPlaying && engine) {
+                // We use a slight delay to ensure the video has actually seeked to the new frame
+                setTimeout(() => {
+                    if (videoRef.current) engine.processFrame(videoRef.current);
+                }, 40);
+            }
         }
+    }
+
+    const jumpToIssueOccurrence = (issueId: string) => {
+        // 1. Group occurrences into continuous segments (within 0.5s of each other)
+        const entries = issueHistory.filter(h => h.issues.some(i => i.id === issueId));
+        if (entries.length === 0) return;
+
+        const segments: number[] = [];
+        let currentSegmentStart = entries[0].time;
+        segments.push(currentSegmentStart);
+
+        for (let i = 1; i < entries.length; i++) {
+            // If the gap between detections is > 0.5s, consider it a new segment
+            if (entries[i].time - entries[i - 1].time > 0.5) {
+                segments.push(entries[i].time);
+            }
+        }
+
+        // 2. Cycle through the segments
+        const currentCount = issueClickCounts[issueId] || 0;
+        const nextIndex = currentCount % segments.length;
+        const targetTime = segments[nextIndex];
+
+        handleSeek(targetTime);
+        setActiveIssueId(issueId);
+        setActiveSegmentStart(targetTime);
+
+        // Update click count
+        setIssueClickCounts(prev => ({
+            ...prev,
+            [issueId]: currentCount + 1
+        }));
     }
 
     return (
@@ -242,6 +293,8 @@ function AnalysisContent() {
                             duration={duration}
                             currentTime={currentTime}
                             onSeek={handleSeek}
+                            activeIssueId={activeIssueId}
+                            activeSegmentStart={activeSegmentStart}
                         />
 
                         {/* 2. Analysis Report - Glass Card */}
@@ -267,7 +320,14 @@ function AnalysisContent() {
                                     </div>
                                 ) : (
                                     currentIssues.map((issue, idx) => (
-                                        <div key={`${issue.id}-${idx}`} className="p-4 rounded-xl bg-black/20 border border-white/10 space-y-2 animate-in fade-in slide-in-from-bottom-2 hover:bg-black/30 transition-colors">
+                                        <div
+                                            key={`${issue.id}-${idx}`}
+                                            onClick={() => jumpToIssueOccurrence(issue.id)}
+                                            className={`p-4 rounded-xl border transition-all cursor-pointer group hover:scale-[1.02] active:scale-[0.98] ${activeIssueId === issue.id
+                                                ? 'bg-primary/20 border-primary/40 ring-1 ring-primary/30'
+                                                : 'bg-black/20 border-white/10 hover:bg-black/30 hover:border-white/20'
+                                                } space-y-2 animate-in fade-in slide-in-from-bottom-2`}
+                                        >
                                             <div className="flex items-center justify-between">
                                                 <h3 className="font-medium text-white text-sm">{issue.name}</h3>
                                                 <span className={`text-[10px] px-2 py-1 rounded-full font-mono uppercase tracking-wider ${issue.riskLevel === 'high' ? 'bg-red-500/20 text-red-400 border border-red-500/20' : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/20'
