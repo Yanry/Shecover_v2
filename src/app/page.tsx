@@ -67,9 +67,9 @@ export default function Home() {
                 <ShieldCheck className="w-6 h-6" />
               </div>
               <div className="flex-1">
-                <h3 className="text-xl font-bold text-white group-hover:text-primary transition-colors">攀岩风险检测</h3>
+                <h3 className="text-xl font-bold text-white group-hover:text-primary transition-colors">运动风险检测</h3>
                 <p className="text-sm text-white/50 mt-1">
-                  动态分析失稳与摔落风险
+                  动态分析失稳与受伤风险
                 </p>
               </div>
               <ArrowRight className="w-6 h-6 text-white/20 group-hover:text-primary transition-colors" />

@@ -22,8 +22,14 @@ export function RiskTimeline({ issues, duration, currentTime, onSeek }: Timeline
         const width = canvas.width;
         const height = canvas.height;
 
+        if (!duration || duration <= 0) {
+            // Clear but show background
+            ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+            ctx.fillRect(0, 0, width, height);
+            return;
+        }
+
         // Clear
-        ctx.clearRect(0, 0, width, height);
 
         // Background - Transparent with border
         ctx.fillStyle = "rgba(0, 0, 0, 0.2)";

@@ -160,10 +160,10 @@ function AnalysisContent() {
                 </Link>
 
                 <Select value={mode} onValueChange={(v: AnalysisMode) => setMode(v)}>
-                    <SelectTrigger className="w-[160px] h-9 bg-white/10 border-white/20 text-white text-xs backdrop-blur-md hover:bg-white/20 transition-all rounded-full">
+                    <SelectTrigger className="w-auto min-w-[140px] max-w-[180px] h-9 bg-white/10 border-white/20 text-white text-xs backdrop-blur-md hover:bg-white/20 transition-all rounded-full px-4">
                         <SelectValue placeholder="分析模式" />
                     </SelectTrigger>
-                    <SelectContent className="bg-black/90 border-white/10 text-white backdrop-blur-xl">
+                    <SelectContent className="bg-black/90 border-white/10 text-white backdrop-blur-xl" align="end">
                         <SelectItem value="standing">自然站立</SelectItem>
                         <SelectItem value="single_leg">单腿站立</SelectItem>
                         <SelectItem value="walking">自然步行</SelectItem>
@@ -174,7 +174,7 @@ function AnalysisContent() {
                 </Select>
             </div>
 
-            <main className="flex-1 flex flex-col p-4 gap-6 max-w-md mx-auto w-full">
+            <main className="flex-1 flex flex-col p-4 gap-6 w-full max-w-6xl mx-auto portrait:p-2 portrait:gap-4">
 
                 {/* 1. Video Area */}
                 {!videoUrl ? (
@@ -185,10 +185,10 @@ function AnalysisContent() {
                     <div className="flex flex-col gap-4">
                         {/* Player */}
                         <div
-                            className="relative max-w-full mx-auto bg-black/40 rounded-3xl overflow-hidden shadow-2xl shadow-black/50 border border-white/10"
+                            className="relative w-full mx-auto bg-black/40 rounded-3xl overflow-hidden shadow-2xl shadow-black/50 border border-white/10 
+                                       portrait:max-h-[60vh] landscape:max-h-[75vh]"
                             style={{
-                                aspectRatio: videoDimensions.width > 0 ? `${videoDimensions.width} / ${videoDimensions.height}` : '3/4',
-                                maxHeight: '70vh'
+                                aspectRatio: videoDimensions.width > 0 ? `${videoDimensions.width} / ${videoDimensions.height}` : '16/9'
                             }}
                         >
                             <video
@@ -236,15 +236,13 @@ function AnalysisContent() {
                             </div>
                         </div>
 
-                        {/* Climbing Timeline */}
-                        {mode === 'climbing' && (
-                            <RiskTimeline
-                                issues={issueHistory}
-                                duration={duration}
-                                currentTime={currentTime}
-                                onSeek={handleSeek}
-                            />
-                        )}
+                        {/* Risk Timeline - Always visible */}
+                        <RiskTimeline
+                            issues={issueHistory}
+                            duration={duration}
+                            currentTime={currentTime}
+                            onSeek={handleSeek}
+                        />
 
                         {/* 2. Analysis Report - Glass Card */}
                         <Card className="bg-white/10 border-white/20 text-white backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden mt-2">
