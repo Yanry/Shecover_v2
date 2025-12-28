@@ -18,10 +18,22 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { ArrowLeft, Save } from "lucide-react";
 import Link from "next/link";
 import { Separator } from "@/components/ui/separator";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger
+} from "@/components/ui/dialog";
+import { PainProfileComponent } from "@/components/PainProfile";
+import { HeartPulse, CheckSquare } from "lucide-react";
+import { PainProfile } from "@/lib/analysis/types";
+import { cn } from "@/lib/utils";
 
 export default function ProfilePage() {
     const router = useRouter();
     const { userProfile, setUserProfile } = useAppStore();
+    const [isPainProfileOpen, setIsPainProfileOpen] = useState(false);
     const [formData, setFormData] = useState<Partial<UserProfile>>({
         heightCm: 170,
         weightKg: 60,
@@ -34,6 +46,11 @@ export default function ProfilePage() {
             setFormData(userProfile);
         }
     }, [userProfile]);
+
+    const handlePainProfileSave = (profile: PainProfile) => {
+        setFormData(prev => ({ ...prev, painProfile: profile }));
+        setIsPainProfileOpen(false);
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -106,6 +123,60 @@ export default function ProfilePage() {
                                         <SelectItem value="advanced">高阶 (3年以上)</SelectItem>
                                     </SelectContent>
                                 </Select>
+                            </div>
+
+                            <Separator className="bg-white/5" />
+
+                            <div className="space-y-3">
+                                <Label className="text-sm font-medium text-white/80 flex items-center">
+                                    <HeartPulse className="w-4 h-4 mr-2 text-red-400" />
+                                    伤病与疼痛 (可选)
+                                </Label>
+                                <Dialog open={isPainProfileOpen} onOpenChange={setIsPainProfileOpen}>
+                                    <DialogTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            className={cn(
+                                                "w-full h-14 rounded-2xl border-white/5 bg-secondary/10 flex items-center justify-between px-4 hover:bg-secondary/20 transition-all group",
+                                                formData.painProfile?.regions?.length ? "border-primary/30" : ""
+                                            )}
+                                        >
+                                            <div className="flex items-center">
+                                                <div className={cn(
+                                                    "w-10 h-10 rounded-xl flex items-center justify-center mr-3 transition-colors",
+                                                    formData.painProfile?.regions?.length ? "bg-primary/20 text-primary" : "bg-white/5 text-white/30"
+                                                )}>
+                                                    <HeartPulse className="w-5 h-5" />
+                                                </div>
+                                                <div className="text-left">
+                                                    <div className="text-sm font-bold text-white group-hover:text-primary transition-colors">
+                                                        记录疼痛史
+                                                    </div>
+                                                    <div className="text-[10px] text-white/40 font-light">
+                                                        {formData.painProfile?.regions?.length
+                                                            ? `已记录 ${formData.painProfile.regions.length} 个区域`
+                                                            : "记录伤病信息以获得更精准评估"}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {formData.painProfile?.regions?.length ? (
+                                                <CheckSquare className="w-5 h-5 text-primary" />
+                                            ) : (
+                                                <div className="w-6 h-6 rounded-full border border-white/10" />
+                                            )}
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="max-w-md bg-stone-950/95 border-white/10 backdrop-blur-2xl p-6 rounded-[24px]">
+                                        <DialogHeader>
+                                            <DialogTitle className="sr-only font-bold">编辑疼痛信息</DialogTitle>
+                                        </DialogHeader>
+                                        <PainProfileComponent
+                                            initialData={formData.painProfile}
+                                            onSave={handlePainProfileSave}
+                                            onCancel={() => { }} // Dialog handles close
+                                        />
+                                    </DialogContent>
+                                </Dialog>
                             </div>
                         </CardContent>
                         <CardFooter className="pt-4">
